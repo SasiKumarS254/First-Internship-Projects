@@ -1,0 +1,48 @@
+# 🧪 Import Libraries
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+
+# 📥 Load and Prepare Data
+df = pd.read_csv('data.csv')
+
+# Map diagnosis labels to binary values
+df['diagnosis'] = df['diagnosis'].map({'M': 1, 'B': 0})
+
+# Drop the 'id' column
+df.drop(df.columns[[0]], axis=1, inplace=True)
+
+# Select features and target
+X = df[['radius_mean', 'perimeter_mean', 'area_mean', 'concavity_mean', 'concave points_mean']]
+y = df['diagnosis']
+
+# Split data
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 🤖 K-Nearest Neighbors
+knn = KNeighborsClassifier()
+knn.fit(x_train, y_train)
+knn_y_pred = knn.predict(x_test)
+print("KNN Accuracy:", accuracy_score(y_test, knn_y_pred))
+knn_scores = cross_val_score(knn, X, y, cv=10)
+print("KNN 10-Fold CV Score: {:.2%} (+/- {:.2%})".format(np.mean(knn_scores), np.std(knn_scores)*2))
+
+# 📈 Logistic Regression
+lr = LogisticRegression(random_state=0, max_iter=1000)
+lr.fit(x_train, y_train)
+lr_y_pred = lr.predict(x_test)
+print("Logistic Regression Accuracy:", accuracy_score(y_test, lr_y_pred))
+lr_scores = cross_val_score(lr, X, y, cv=10)
+print("Logistic Regression 10-Fold CV Score: {:.2%} (+/- {:.2%})".format(np.mean(lr_scores), np.std(lr_scores)*2))
+
+# 🧠 Naive Bayes
+gnb = GaussianNB()
+gnb.fit(x_train, y_train)
+gnb_y_pred = gnb.predict(x_test)
+print("Naive Bayes Accuracy:", accuracy_score(y_test, gnb_y_pred))
+gnb_scores = cross_val_score(gnb, X, y, cv=10)
+print("Naive Bayes 10-Fold CV Score: {:.2%} (+/- {:.2%})".format(np.mean(gnb_scores), np.std(gnb_scores)*2))
