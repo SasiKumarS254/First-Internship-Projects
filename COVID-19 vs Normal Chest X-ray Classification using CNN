@@ -1,0 +1,102 @@
+# 🧪 Import Libraries
+import os
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Lambda, Dense, Flatten, Dropout, Conv2D, MaxPooling2D, Activation
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import classification_report, roc_curve, auc, roc_auc_score
+import cv2
+
+sns.set()
+
+# 📁 Data Preprocessing
+IMAGE_SIZE = [128, 128]
+train_path = 'Dataset/Train'
+val_path = 'Dataset/Val'
+test_path = 'Dataset/Test'
+
+train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+val_datagen = ImageDataGenerator(rescale=1./255)
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+training_set = train_datagen.flow_from_directory(train_path, target_size=IMAGE_SIZE, batch_size=32, class_mode='categorical')
+val_set = val_datagen.flow_from_directory(val_path, target_size=IMAGE_SIZE, batch_size=32, class_mode='categorical')
+test_set = test_datagen.flow_from_directory(test_path, target_size=IMAGE_SIZE, batch_size=32, class_mode='categorical')
+
+# 🧠 Build CNN Model
+model = Sequential([
+    Conv2D(32, (3, 3), input_shape=(128, 128, 3)),
+    Activation('relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+
+    Conv2D(64, (3, 3), kernel_initializer='he_uniform'),
+    Activation('relu'),
+    MaxPooling2D(pool_size=(2, 2)),
+
+    Flatten(),
+    Dense(64),
+    Activation('relu'),
+    Dropout(0.5),
+
+    Dense(2),
+    Activation('softmax')
+])
+
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.summary()
+
+# 📈 Train the Model
+history = model.fit(training_set, batch_size=32, verbose=1, epochs=5, validation_data=val_set)
+
+# 🧪 Evaluate on Test Data
+print("Evaluate on Test Data")
+model.evaluate(test_set)
+
+# 📊 Plot Accuracy and Loss
+def plot(history):
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    axes[0].plot(history["loss"], "r-", label="Train Loss")
+    axes[0].plot(history["val_loss"], "b-", label="Val Loss")
+    axes[0].set_title("Loss Curve")
+    axes[0].legend()
+
+    axes[1].plot(history["accuracy"], "r-", label="Train Acc")
+    axes[1].plot(history["val_accuracy"], "b-", label="Val Acc")
+    axes[1].set_title("Accuracy Curve")
+    axes[1].legend()
+
+    fig.tight_layout()
+    plt.show()
+
+plot(history.history)
+
+# 🧪 Classification Report & ROC-AUC
+Y_pred = model.predict(test_set)
+Y_test = test_set.classes
+Y_test = tf.keras.utils.to_categorical(Y_test, num_classes=2)
+
+print(classification_report(np.argmax(Y_test, axis=1), np.argmax(Y_pred, axis=1), target_names=['COVID-19', 'Normal']))
+
+def roc(y_test, y_pred, target=['COVID-19', 'Normal'], average='macro'):
+    fig, c_ax = plt.subplots(1, 1, figsize=(8, 6))
+    for idx, c_label in enumerate(target):
+        fpr, tpr, thresholds = roc_curve(y_test[:, idx].astype(int), y_pred[:, idx])
+        c_ax.plot(fpr, tpr, label='%s (AUC:%0.2f)' % (c_label, auc(fpr, tpr)))
+    c_ax.plot(fpr, fpr, 'b-', label='Random Guessing')
+    c_ax.legend()
+    c_ax.set_xlabel('False Positive Rate')
+    c_ax.set_ylabel('True Positive Rate')
+    plt.show()
+    return roc_auc_score(y_test, y_pred, average=average)
+
+print('ROC AUC score:', roc(Y_test, Y_pred))
+
+# 🖼️ Test Prediction on Image
+img = cv2.imread('Test Images/COVID-19 (18).jpg')
+plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+plt.title("Testing Image")
+plt.axis('off')
+plt.show()
